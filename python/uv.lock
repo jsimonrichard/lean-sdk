@@ -1,0 +1,22 @@
+version = 1
+revision = 1
+requires-python = ">=3.12"
+
+[[package]]
+name = "jsonrpcclient"
+version = "4.0.3"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/4b/ba54814656b155f14ae73092ae194dd04eaf7e8e9a3da4f2ee7ffc9fe98f/jsonrpcclient-4.0.3-py3-none-any.whl", hash = "sha256:3cbb9e27e1be29821becf135ea183144a836215422727e1ffe5056a49a670f0d", size = 7009 },
+]
+
+[[package]]
+name = "python"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "jsonrpcclient" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jsonrpcclient", specifier = ">=4.0.3" }]
