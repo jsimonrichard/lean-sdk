@@ -8,3 +8,8 @@ name = "LeanSDK"
 name = "lean-sdk"
 root = "LeanSDK.Main"
 supportInterpreter = true
+
+[[lean_exe]]
+name = "repl"
+root = "REPL.Main"
+supportInterpreter = true
