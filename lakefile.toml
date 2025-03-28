@@ -1,10 +1,10 @@
-name = "REPL"
-defaultTargets = ["repl"]
+name = "LeanSDK"
+defaultTargets = ["lean-sdk"]
 
 [[lean_lib]]
-name = "REPL"
+name = "LeanSDK"
 
 [[lean_exe]]
-name = "repl"
-root = "REPL.Main"
+name = "lean-sdk"
+root = "LeanSDK.Main"
 supportInterpreter = true

@@ -1,3 +1,9 @@
+# LEAN SDK
+
+This is a fork of the Lean REPL project. See the old documentation below.
+
+
+
 # A read-eval-print-loop for Lean 4
 
 Run using `lake exe repl`.

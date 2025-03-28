@@ -9,7 +9,7 @@ import Lean.Elab.InfoTree.Main
 
 open Lean Elab InfoTree
 
-namespace REPL
+namespace LeanSDK
 
 structure CommandOptions where
   allTactics : Option Bool := none
@@ -185,4 +185,4 @@ structure UnpickleProofState where
   env : Option Nat
 deriving ToJson, FromJson
 
-end REPL
+end LeanSDK

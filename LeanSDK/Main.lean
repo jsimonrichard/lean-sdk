@@ -3,17 +3,23 @@ Copyright (c) 2023 Scott Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Scott Morrison
 -/
-import REPL.JSON
-import REPL.Frontend
-import REPL.Util.Path
-import REPL.Lean.ContextInfo
-import REPL.Lean.Environment
-import REPL.Lean.InfoTree
-import REPL.Lean.InfoTree.ToJson
-import REPL.Snapshots
+
+import Lean.Data.Json
+import Lean.Data.JsonRpc
+import LeanSDK.JSON
+import LeanSDK.Frontend
+import LeanSDK.Util.Path
+import LeanSDK.Lean.ContextInfo
+import LeanSDK.Lean.Environment
+import LeanSDK.Lean.InfoTree
+import LeanSDK.Lean.InfoTree.ToJson
+import LeanSDK.Snapshots
+import LeanSDK.JsonRpc
+
+open Lean.Json Lean.JsonRpc
 
 /-!
-# A REPL for Lean.
+# A LeanSDK for Lean.
 
 Communicates via JSON on stdin and stdout. Commands should be separated by blank lines.
 
@@ -54,11 +60,11 @@ The results are of the form
  Information is generated for tactic mode sorries, but not for term mode sorries.
 -/
 
-open Lean Elab
+open Lean Elab Lean.Json Lean.JsonRpc
 
-namespace REPL
+namespace LeanSDK
 
-/-- The monadic state for the Lean REPL. -/
+/-- The monadic state for the Lean LeanSDK. -/
 structure State where
   /--
   Environment snapshots after complete declarations.
@@ -74,21 +80,27 @@ structure State where
   proofStates : Array ProofSnapshot := #[]
 
 /--
-The Lean REPL monad.
+The Lean LeanSDK monad.
 
 We only use this with `m := IO`, but it is set up as a monad transformer for flexibility.
 -/
 abbrev M (m : Type → Type) := StateT State m
 
-variable [Monad m] [MonadLiftT IO m]
+variable {m} [Monad m] [MonadLiftT IO m]
 
-/-- Record an `CommandSnapshot` into the REPL state, returning its index for future use. -/
+abbrev E (m : Type → Type) := ExceptT JsonRpc.Message m
+
+instance: MonadLiftT (M m) (E (M m)) where
+  monadLift := ExceptT.lift
+
+
+/-- Record an `CommandSnapshot` into the LeanSDK state, returning its index for future use. -/
 def recordCommandSnapshot (state : CommandSnapshot) : M m Nat := do
   let id := (← get).cmdStates.size
   modify fun s => { s with cmdStates := s.cmdStates.push state }
   return id
 
-/-- Record a `ProofSnapshot` into the REPL state, returning its index for future use. -/
+/-- Record a `ProofSnapshot` into the LeanSDK state, returning its index for future use. -/
 def recordProofSnapshot (proofState : ProofSnapshot) : M m Nat := do
   let id := (← get).proofStates.size
   modify fun s => { s with proofStates := s.proofStates.push proofState }
@@ -253,82 +265,112 @@ def runProofStep (s : ProofStep) : M IO (ProofStepResponse ⊕ Error) := do
     catch ex =>
       return .inr ⟨"Lean error:\n" ++ ex.toString⟩
 
-end REPL
+end LeanSDK
 
-open REPL
-
-/-- Get lines from stdin until a blank line is entered. -/
-partial def getLines : IO String := do
-  let line ← (← IO.getStdin).getLine
-  if line.trim.isEmpty then
-    return line
-  else
-    return line ++ (← getLines)
+open Lean.Json Lean.JsonRpc LeanSDK
 
 instance [ToJson α] [ToJson β] : ToJson (α ⊕ β) where
   toJson x := match x with
   | .inl a => toJson a
   | .inr b => toJson b
 
-/-- Commands accepted by the REPL. -/
+/-- Commands accepted by the LeanSDK. -/
 inductive Input
-| command : REPL.Command → Input
-| file : REPL.File → Input
-| proofStep : REPL.ProofStep → Input
-| pickleEnvironment : REPL.PickleEnvironment → Input
-| unpickleEnvironment : REPL.UnpickleEnvironment → Input
-| pickleProofSnapshot : REPL.PickleProofState → Input
-| unpickleProofSnapshot : REPL.UnpickleProofState → Input
+| command : LeanSDK.Command → Input
+| file : LeanSDK.File → Input
+| proofStep : LeanSDK.ProofStep → Input
+| pickleEnvironment : LeanSDK.PickleEnvironment → Input
+| unpickleEnvironment : LeanSDK.UnpickleEnvironment → Input
+| pickleProofSnapshot : LeanSDK.PickleProofState → Input
+| unpickleProofSnapshot : LeanSDK.UnpickleProofState → Input
 
 /-- Parse a user input string to an input command. -/
-def parse (query : String) : IO Input := do
-  let json := Json.parse query
-  match json with
-  | .error e => throw <| IO.userError <| toString <| toJson <|
-      (⟨"Could not parse JSON:\n" ++ e⟩ : Error)
-  | .ok j => match fromJson? j with
-    | .ok (r : REPL.ProofStep) => return .proofStep r
-    | .error _ => match fromJson? j with
-    | .ok (r : REPL.PickleEnvironment) => return .pickleEnvironment r
-    | .error _ => match fromJson? j with
-    | .ok (r : REPL.UnpickleEnvironment) => return .unpickleEnvironment r
-    | .error _ => match fromJson? j with
-    | .ok (r : REPL.PickleProofState) => return .pickleProofSnapshot r
-    | .error _ => match fromJson? j with
-    | .ok (r : REPL.UnpickleProofState) => return .unpickleProofSnapshot r
-    | .error _ => match fromJson? j with
-    | .ok (r : REPL.Command) => return .command r
-    | .error _ => match fromJson? j with
-    | .ok (r : REPL.File) => return .file r
+def parse (json : Json) : IO Input := do
+  match fromJson? json with
+    | .ok (r : LeanSDK.ProofStep) => return .proofStep r
+    | .error _ => match fromJson? json with
+    | .ok (r : LeanSDK.PickleEnvironment) => return .pickleEnvironment r
+    | .error _ => match fromJson? json with
+    | .ok (r : LeanSDK.UnpickleEnvironment) => return .unpickleEnvironment r
+    | .error _ => match fromJson? json with
+    | .ok (r : LeanSDK.PickleProofState) => return .pickleProofSnapshot r
+    | .error _ => match fromJson? json with
+    | .ok (r : LeanSDK.UnpickleProofState) => return .unpickleProofSnapshot r
+    | .error _ => match fromJson? json with
+    | .ok (r : LeanSDK.Command) => return .command r
+    | .error _ => match fromJson? json with
+    | .ok (r : LeanSDK.File) => return .file r
     | .error e => throw <| IO.userError <| toString <| toJson <|
         (⟨"Could not parse as a valid JSON command:\n" ++ e⟩ : Error)
 
-/-- Avoid buffering the output. -/
-def printFlush [ToString α] (s : α) : IO Unit := do
-  let out ← IO.getStdout
-  out.putStr (toString s)
-  out.flush -- Flush the output
 
-/-- Read-eval-print loop for Lean. -/
-unsafe def repl : IO Unit :=
+-- unsafe def server : IO Unit :=
+--   StateT.run' loop {}
+-- where loop : M IO Unit := do
+--   let query ← getLines
+--   if query = "" then
+--     return ()
+--   IO.println <| toString <| ← match ← parse query with
+--   | .command r => return toJson (← runCommand r)
+--   | .file r => return toJson (← processFile r)
+--   | .proofStep r => return toJson (← runProofStep r)
+--   | .pickleEnvironment r => return toJson (← pickleCommandSnapshot r)
+--   | .unpickleEnvironment r => return toJson (← unpickleCommandSnapshot r)
+--   | .pickleProofSnapshot r => return toJson (← pickleProofSnapshot r)
+--   | .unpickleProofSnapshot r => return toJson (← unpickleProofSnapshot r)
+--   loop
+
+def toMethodInput [FromJson α] (id : RequestID) (params : Option Structured) : E (M IO) α := do
+  match params with
+  | none => throw $ .responseError id .invalidRequest "No parameters" none
+  | some p => match fromJson? (toJson p) with
+  | .error e => throw $ .responseError id .parseError e none
+  | .ok command => pure command
+
+def handler (id: RequestID) (method: String) (params: Option Structured) : E (M IO) JsonRpc.Message := do
+  match method with
+  | "runCommand" =>
+    let command: LeanSDK.Command := ← toMethodInput id params
+    pure $ .response id $ toJson (← runCommand command)
+  | "processFile" =>
+    let file: LeanSDK.File := ← toMethodInput id params
+    pure $ .response id $ toJson (← processFile file)
+  | "runProofStep" =>
+    let proofStep: LeanSDK.ProofStep := ← toMethodInput id params
+    pure $ .response id $ toJson (← runProofStep proofStep)
+  | "pickleEnvironment" =>
+    let pickleEnvironment: LeanSDK.PickleEnvironment := ← toMethodInput id params
+    -- I don't know why the specializing type hint is necessary...
+    pure $ .response id $ toJson (← (pickleCommandSnapshot pickleEnvironment : M IO (CommandResponse ⊕ Error)))
+  | "unpickleEnvironment" =>
+    let unpickleEnvironment: LeanSDK.UnpickleEnvironment := ← toMethodInput id params
+    pure $ .response id $ toJson (← unpickleCommandSnapshot unpickleEnvironment)
+  | _ => throw $ .responseError id .invalidRequest "Unknown method" none
+
+def serverLoop (stdin : IO.FS.Stream) (stdout : IO.FS.Stream) : IO Unit :=
   StateT.run' loop {}
-where loop : M IO Unit := do
-  let query ← getLines
-  if query = "" then
-    return ()
-  if query.startsWith "#" || query.startsWith "--" then loop else
-  IO.println <| toString <| ← match ← parse query with
-  | .command r => return toJson (← runCommand r)
-  | .file r => return toJson (← processFile r)
-  | .proofStep r => return toJson (← runProofStep r)
-  | .pickleEnvironment r => return toJson (← pickleCommandSnapshot r)
-  | .unpickleEnvironment r => return toJson (← unpickleCommandSnapshot r)
-  | .pickleProofSnapshot r => return toJson (← pickleProofSnapshot r)
-  | .unpickleProofSnapshot r => return toJson (← unpickleProofSnapshot r)
-  printFlush "\n" -- easier to parse the output if there are blank lines
-  loop
+  where loop : M IO Unit := do
+    while true do
+      try
+        match ← stdin.readJsonRpcMessage with
+        | .request id method params =>
+          stdout.writeJsonRpcMessage $ match ← handler id method params with
+          | .ok msg | .error msg => msg
+        | .notification _ _ => pure ()
+        | .response id _ =>
+          stdout.writeJsonRpcMessage $ Message.responseError id .invalidRequest "You send a response, but I'm the server!" .none
+        | .responseError id _ _ _ =>
+          stdout.writeJsonRpcMessage $ Message.responseError id .invalidRequest "You send a responseError, but I'm the server!" .none
+      catch e => match e with
+        | .userError "Cannot read JsonRpc message: Stream was closed" =>
+          break
+        | e =>
+          stdout.writeJsonRpcMessage (Message.responseError .null .parseError e.toString .none)
 
-/-- Main executable function, run as `lake exe repl`. -/
-unsafe def main (_ : List String) : IO Unit := do
+/-- Main executable function, run as `lake exe LeanSDK`. -/
+def main (_ : List String) : IO Unit := do
+  let stdin ← IO.getStdin
+  let stdout ← IO.getStdout
+
   initSearchPath (← Lean.findSysroot)
-  repl
+  serverLoop stdin stdout

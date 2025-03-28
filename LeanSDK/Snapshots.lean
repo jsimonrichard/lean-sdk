@@ -5,7 +5,7 @@ Authors: Scott Morrison
 -/
 import Lean.Replay
 import Lean.Elab.Command
-import REPL.Util.Pickle
+import LeanSDK.Util.Pickle
 
 open Lean Elab
 
@@ -25,7 +25,7 @@ namespace Lean.Elab.Command
 
 end Lean.Elab.Command
 
-namespace REPL
+namespace LeanSDK
 
 /--
 Bundled structure for the `State` and `Context` objects

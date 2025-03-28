@@ -1,5 +1,5 @@
-import REPL.Lean.InfoTree
-import REPL.Lean.ContextInfo
+import LeanSDK.Lean.InfoTree
+import LeanSDK.Lean.ContextInfo
 
 /-!
 # Exporting an `InfoTree` as Json

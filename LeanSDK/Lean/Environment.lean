@@ -1,4 +1,4 @@
-import REPL.Util.Pickle
+import LeanSDK.Util.Pickle
 import Lean.Replay
 
 open System (FilePath)
@@ -21,7 +21,7 @@ def pickle (env : Environment) (path : FilePath) : IO Unit :=
 Unpickle an `Environment` from disk.
 
 We construct a fresh `Environment` with the relevant imports,
-and then replace the new constants.
+and then LeanSDKace the new constants.
 -/
 def unpickle (path : FilePath) : IO (Environment × CompactedRegion) := unsafe do
   let ((imports, map₂), region) ← _root_.unpickle (Array Import × PHashMap Name ConstantInfo) path
