@@ -73,7 +73,6 @@ class LeanRpcClient:
         # Read the response body
         response_bytes = self.process.stdout.read(content_length)
         response_str = response_bytes.decode("utf-8")
-        logger.debug(f"Received response: {response_str}")
         # Parse the response
         return jsonrpcclient.parse(json.loads(response_str))
 
