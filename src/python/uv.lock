@@ -34,14 +34,18 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "jsonrpcclient" },
+]
+
+[package.dev-dependencies]
+dev = [
     { name = "pytest" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "jsonrpcclient", specifier = ">=4.0.3" },
-    { name = "pytest", specifier = ">=8.3.5" },
-]
+requires-dist = [{ name = "jsonrpcclient", specifier = ">=4.0.3" }]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.3.5" }]
 
 [[package]]
 name = "packaging"
