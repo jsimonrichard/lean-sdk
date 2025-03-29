@@ -4,9 +4,7 @@ version = "0.1.0"
 description = "Lean SDK for Python"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "jsonrpcclient>=4.0.3",
-]
+dependencies = ["jsonrpcclient>=4.0.3", "pytest>=8.3.5"]
 
 [build-system]
 requires = ["hatchling"]
@@ -14,3 +12,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 packages = ["lean_sdk"]
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
