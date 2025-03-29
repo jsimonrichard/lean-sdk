@@ -52,7 +52,6 @@ class LeanRpcClient:
     ):
         """Write a JSON-RPC message to the LeanRPC server."""
         message = self._to_message_bytes(method, params)
-        logger.debug(f"Sending message: {message.decode('utf-8')}")
 
         self.process.stdin.write(message)
         self.process.stdin.flush()
@@ -90,10 +89,12 @@ class LeanRpcClient:
         Returns:
             The response from the server
         """
+        logger.debug(f"Sending message: {method}: {json.dumps(params, indent=4)}")
         self._write_message(method, params)
 
         response = self._read_response()
         if isinstance(response, jsonrpcclient.Ok):
+            logger.debug(f"Received response: {json.dumps(response.result, indent=4)}")
             return response.result
         else:
             raise RuntimeError(f"Error from the lean server: {response.message}")
