@@ -6,6 +6,9 @@ from pathlib import Path
 import logging
 
 
+logger = logging.getLogger(__name__)
+
+
 class LeanRpcClient:
     def __init__(self, lean_project_path: Path | str):
         """Initialize the LeanRPC client.
@@ -49,7 +52,7 @@ class LeanRpcClient:
     ):
         """Write a JSON-RPC message to the LeanRPC server."""
         message = self._to_message_bytes(method, params)
-        logging.debug(f"Sending message: {message.decode('utf-8')}")
+        logger.debug(f"Sending message: {message.decode('utf-8')}")
 
         self.process.stdin.write(message)
         self.process.stdin.flush()
@@ -71,7 +74,7 @@ class LeanRpcClient:
         # Read the response body
         response_bytes = self.process.stdout.read(content_length)
         response_str = response_bytes.decode("utf-8")
-        logging.debug(f"Received response: {response_str}")
+        logger.debug(f"Received response: {response_str}")
         # Parse the response
         return jsonrpcclient.parse(json.loads(response_str))
 
