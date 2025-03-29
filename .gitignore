@@ -1,8 +1,4 @@
-/build
-/lake-packages/*
-/lakefile.olean
-/.lake
-/test/Mathlib/.lake
-/test/*.olean
-/test/*.olean.tmp
-/test/*.produced.out
+.lake
+*.olean
+*.olean.tmp
+*.produced.out

@@ -6,14 +6,14 @@ from pathlib import Path
 
 
 class LeanRpcClient:
-    def __init__(self, cwd: Path = Path(__file__).parent, lean_path: Path = Path(__file__).parent / "../.lake/build/bin/lean-sdk"):
+    def __init__(self, cwd: Path = Path(__file__).parent):
         """Initialize the LeanRPC client.
 
         Args:
             lean_path: Path to the Lean executable. If None, uses LeanRpc/.lake/build/bin/leanrpc
         """
         self.process = subprocess.Popen(
-            [str(lean_path)],
+            ["lake", "exe", "lean-sdk"],
             cwd=str(cwd),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
