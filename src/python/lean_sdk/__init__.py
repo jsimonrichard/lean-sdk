@@ -5,8 +5,6 @@ import jsonrpcclient
 from pathlib import Path
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-
 
 class LeanRpcClient:
     def __init__(self, lean_project_path: Path | str):

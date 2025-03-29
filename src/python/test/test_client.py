@@ -1,12 +1,6 @@
 import pytest
 from lean_sdk import LeanRpcClient, LeanSession
 from pathlib import Path
-import logging
-
-
-def pytest_configure(config):
-    # Set the logging level to DEBUG
-    logging.basicConfig(level=logging.DEBUG)
 
 
 @pytest.fixture
