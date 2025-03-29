@@ -1,0 +1,1 @@
+- [ ] Add a free environment option to prevent memory leaks
