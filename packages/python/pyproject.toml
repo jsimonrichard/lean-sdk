@@ -1,9 +1,16 @@
 [project]
-name = "python"
+name = "lean-sdk"
 version = "0.1.0"
-description = "Add your description here"
+description = "Lean SDK for Python"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "jsonrpcclient>=4.0.3",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+packages = ["lean_sdk"]
