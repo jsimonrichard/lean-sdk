@@ -6,5 +6,8 @@
     {
       "path": "./src/LeanSDK"
     }
-  ]
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "./src/python/.venv/bin/python"
+  }
 }

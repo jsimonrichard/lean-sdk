@@ -8,4 +8,9 @@
   // We don't use this: it messes up our test files!
   // "files.trimFinalNewlines": true,
   "files.trimTrailingWhitespace": true,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+  },
+  "editor.formatOnSave": true,
+  "python.defaultInterpreterPath": "./src/python/.venv/bin/python"
 }
