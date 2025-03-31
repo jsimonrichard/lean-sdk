@@ -1,31 +1,39 @@
+import asyncio
 import json
-import subprocess
 from typing import Any, Dict, List, Optional
 import jsonrpcclient
 from pathlib import Path
 import logging
 
-from .async_ import *  # noqa: F403
 
 logger = logging.getLogger(__name__)
 
 
-class LeanRpcClient:
-    def __init__(self, lean_project_path: Path | str):
+class LeanRpcClientAsync:
+    def __init__(
+        self, lean_project_path: Path | str, process: asyncio.subprocess.Process
+    ):
+        self.lean_project_path = Path(lean_project_path)
+        self.process = process
+
+    @classmethod
+    async def create(cls, lean_project_path: Path | str):
         """Initialize the LeanRPC client.
 
         Args:
             lean_project_path: Path to the Lean project, which must have the LeanSDK as a git dependency.
         """
-        self.lean_project_path = Path(lean_project_path)
-        self.process = subprocess.Popen(
-            ["lake", "exe", "lean-sdk"],
-            cwd=self.lean_project_path,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        proc = await asyncio.create_subprocess_exec(
+            "lake",
+            "exe",
+            "lean-sdk",
+            cwd=lean_project_path,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             bufsize=0,
         )
+        return cls(lean_project_path, proc)
 
     def _to_message_bytes(
         self, method: str, params: Optional[Dict[str, Any] | List[Any]] = None
@@ -48,20 +56,20 @@ class LeanRpcClient:
             f"Content-Length: {content_length}\r\n\r\n".encode("utf-8") + request_bytes
         )
 
-    def _write_message(
+    async def _write_message(
         self, method: str, params: Optional[Dict[str, Any] | List[Any]] = None
     ):
         """Write a JSON-RPC message to the LeanRPC server."""
         message = self._to_message_bytes(method, params)
 
         self.process.stdin.write(message)
-        self.process.stdin.flush()
+        await self.process.stdin.drain()
 
-    def _read_response(self) -> Any:
+    async def _read_response(self) -> Any:
         """Read the response from the LeanRPC server."""
 
         # Read the response header
-        header = self.process.stdout.readline().decode("utf-8").strip()
+        header = (await self.process.stdout.readline()).decode("utf-8").strip()
         if not header.startswith("Content-Length: "):
             raise RuntimeError(f"Invalid response header: {header}")
 
@@ -69,15 +77,15 @@ class LeanRpcClient:
         content_length = int(header.split(": ")[1])
 
         # Skip the blank line
-        self.process.stdout.readline()
+        await self.process.stdout.readline()
 
         # Read the response body
-        response_bytes = self.process.stdout.read(content_length)
+        response_bytes = await self.process.stdout.read(content_length)
         response_str = response_bytes.decode("utf-8")
         # Parse the response
         return jsonrpcclient.parse(json.loads(response_str))
 
-    def _send_request(
+    async def _send_request(
         self, method: str, params: Optional[Dict[str, Any] | List[Any]] = None
     ) -> Any:
         """Send a JSON-RPC request to the LeanRPC server.
@@ -90,9 +98,9 @@ class LeanRpcClient:
             The response from the server
         """
         logger.debug(f"Sending message: {method}: {json.dumps(params, indent=4)}")
-        self._write_message(method, params)
+        await self._write_message(method, params)
 
-        response = self._read_response()
+        response = await self._read_response()
         if isinstance(response, jsonrpcclient.Ok):
             logger.debug(f"Received response: {json.dumps(response.result, indent=4)}")
             return response.result
@@ -115,15 +123,23 @@ class LeanRpcClient:
         self.close()
 
 
-class LeanSession:
+class LeanSessionAsync:
     def __init__(
         self,
-        client: LeanRpcClient,
+        client: LeanRpcClientAsync,
         env: Optional[int] = None,
-        imports: Optional[List[str]] = None,
     ):
         self.client = client
         self.env = env
+
+    @classmethod
+    async def create(
+        cls,
+        client: LeanRpcClientAsync,
+        env: Optional[int] = None,
+        imports: Optional[List[str]] = None,
+    ):
+        session = cls(client, env)
 
         if env and imports:
             raise RuntimeError(
@@ -131,10 +147,14 @@ class LeanSession:
             )
 
         if imports:
-            self.run_command("\n".join([f"import {import_}" for import_ in imports]))
+            await session.run_command(
+                "\n".join([f"import {import_}" for import_ in imports])
+            )
 
-    def run_command(self, command: str):
-        res = self.client._send_request(
+        return session
+
+    async def run_command(self, command: str):
+        res = await self.client._send_request(
             "runCommand", params={"cmd": command, "env": self.env}
         )
         if "env" not in res:
@@ -144,4 +164,4 @@ class LeanSession:
         return res["messages"] if "messages" in res else None
 
     def fork(self):
-        return LeanSession(self.client, self.env, imports=None)
+        return LeanSessionAsync(self.client, self.env, imports=None)
