@@ -131,7 +131,15 @@ class LeanSession:
             )
 
         if imports:
-            self.run_command("\n".join([f"import {import_}" for import_ in imports]))
+            msgs = self.run_command(
+                "\n".join([f"import {import_}" for import_ in imports])
+            )
+            if msgs:
+                errors = [msg for msg in msgs if msg["severity"] == "error"]
+                if errors:
+                    raise RuntimeError(
+                        f"Errors in imports: {errors}. Please check your imports and try again."
+                    )
 
     def run_command(self, command: str):
         res = self.client._send_request(

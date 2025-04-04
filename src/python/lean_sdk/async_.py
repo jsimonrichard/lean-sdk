@@ -49,7 +49,7 @@ class LeanRpcClientAsync:
             The JSON-RPC message as a bytes object (in UTF-8)
         """
         json_request = jsonrpcclient.request(method, params)
-        request_str = json.dumps(json_request)
+        request_str = json.dumps(json_request, ensure_ascii=False)
         request_bytes = request_str.encode("utf-8")
         content_length = len(request_bytes)
         return (
@@ -147,9 +147,15 @@ class LeanSessionAsync:
             )
 
         if imports:
-            await session.run_command(
+            msgs = await session.run_command(
                 "\n".join([f"import {import_}" for import_ in imports])
             )
+            if msgs:
+                errors = [msg for msg in msgs if msg["severity"] == "error"]
+                if errors:
+                    raise RuntimeError(
+                        f"Errors in imports: {errors}. Please check your imports and try again."
+                    )
 
         return session
 
