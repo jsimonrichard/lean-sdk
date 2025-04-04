@@ -41,7 +41,7 @@ class LeanRpcClient:
             The JSON-RPC message as a bytes object (in UTF-8)
         """
         json_request = jsonrpcclient.request(method, params)
-        request_str = json.dumps(json_request)
+        request_str = json.dumps(json_request, ensure_ascii=False)
         request_bytes = request_str.encode("utf-8")
         content_length = len(request_bytes)
         return (

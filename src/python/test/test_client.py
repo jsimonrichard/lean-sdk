@@ -5,7 +5,7 @@ from pathlib import Path
 
 @pytest.fixture
 def client():
-    lean_project_path = Path(__file__).parent.parent.parent / "LeanSDK"
+    lean_project_path = Path(__file__).parent / "../../../test/MathlibTest"
     return LeanRpcClient(lean_project_path)
 
 
@@ -35,5 +35,18 @@ def test_imports(client):
             "pos": {"line": 1, "column": 0},
             "endPos": {"line": 1, "column": 6},
             "data": "IO.FS.Stream.writeJsonRpcMessage (h : IO.FS.Stream) (msg : Lean.JsonRpc.Message) : IO Unit",
+        }
+    ]
+
+def test_cal_char(client):
+    session = LeanSession(client, imports=["Mathlib"])
+    session.run_command("open Topology")
+    res = session.run_command("#check 𝓝")
+    assert res == [
+        {
+            "severity": "info",
+            "pos": {"line": 1, "column": 0},
+            "endPos": {"line": 1, "column": 6},
+            "data": "𝓝 : ?m.2 → Filter ?m.2",
         }
     ]

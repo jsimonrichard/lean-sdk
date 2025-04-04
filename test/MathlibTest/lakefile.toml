@@ -1,0 +1,23 @@
+name = "MathlibTest"
+version = "0.1.0"
+keywords = ["math"]
+defaultTargets = ["MathlibTest"]
+
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+autoImplicit = false
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+
+[[require]]
+name = "LeanSDK"
+path = "../../src/LeanSDK"
+
+[[require]]
+name = "REPL"
+git = "https://github.com/leanprover-community/repl.git"
+
+[[lean_lib]]
+name = "MathlibTest"
