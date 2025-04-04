@@ -164,4 +164,4 @@ class LeanSessionAsync:
         return res["messages"] if "messages" in res else None
 
     def fork(self):
-        return LeanSessionAsync(self.client, self.env, imports=None)
+        return LeanSessionAsync(self.client, self.env)
