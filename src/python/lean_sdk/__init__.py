@@ -4,8 +4,9 @@ from typing import Any, Dict, List, Optional
 import jsonrpcclient
 from pathlib import Path
 import logging
-
+from copy import deepcopy
 from .async_ import *  # noqa: F403
+from .schema import CommandResponse, LeanError, MessageSeverity, Sorry, TacticResponse
 
 logger = logging.getLogger(__name__)
 
@@ -120,10 +121,12 @@ class LeanSession:
         self,
         client: LeanRpcClient,
         env: Optional[int] = None,
+        tactic_sessions: Optional[List["LeanTacticSession"]] = None,
         imports: Optional[List[str]] = None,
     ):
         self.client = client
         self.env = env
+        self.tactic_sessions = tactic_sessions or []
 
         if env and imports:
             raise RuntimeError(
@@ -131,11 +134,13 @@ class LeanSession:
             )
 
         if imports:
-            msgs = self.run_command(
+            res = self.run_command(
                 "\n".join([f"import {import_}" for import_ in imports])
             )
-            if msgs:
-                errors = [msg for msg in msgs if msg["severity"] == "error"]
+            if res.messages:
+                errors = [
+                    msg for msg in res.messages if msg.severity == MessageSeverity.error
+                ]
                 if errors:
                     raise RuntimeError(
                         f"Errors in imports: {errors}. Please check your imports and try again."
@@ -145,11 +150,63 @@ class LeanSession:
         res = self.client._send_request(
             "runCommand", params={"cmd": command, "env": self.env}
         )
-        if "env" not in res:
-            raise RuntimeError(f"LeanRPC error: env missing from response: {res}")
-        self.env = res["env"]
 
-        return res["messages"] if "messages" in res else None
+        if "error" in res:
+            return LeanError(error=res["error"])
+
+        res = CommandResponse(**res)
+        self.env = res.env
+
+        if res.sorries:
+            self.tactic_sessions = [
+                LeanTacticSession(self.client, sorry) for sorry in res.sorries
+            ]
+
+        return res
 
     def fork(self):
-        return LeanSession(self.client, self.env, imports=None)
+        return LeanSession(
+            self.client,
+            self.env,
+            tactic_sessions=deepcopy(self.tactic_sessions),
+        )
+
+
+class LeanTacticSession:
+    def __init__(
+        self,
+        client: LeanRpcClient,
+        sorry: Sorry,
+        tactic_sessions: Optional[List["LeanTacticSession"]] = None,
+    ):
+        self.client = client
+        self.sorry = sorry
+        self.proof_state = self.sorry.proofState
+        self.goals = [self.sorry.goal]
+        self.tactic_sessions = tactic_sessions or []
+
+    def apply_tactic(self, tactic: str):
+        res = self.client._send_request(
+            "runProofStep", params={"tactic": tactic, "proofState": self.proof_state}
+        )
+
+        if "error" in res:
+            return LeanError(error=res["error"])
+
+        res = TacticResponse(**res)
+        self.proof_state = res.proofState
+        self.goals = res.goals
+
+        if res.sorries:
+            self.tactic_sessions = [
+                LeanTacticSession(self.client, sorry) for sorry in res.sorries
+            ]
+
+        return res
+
+    def fork(self):
+        return LeanTacticSession(
+            self.client,
+            self.sorry,
+            tactic_sessions=deepcopy(self.tactic_sessions),
+        )

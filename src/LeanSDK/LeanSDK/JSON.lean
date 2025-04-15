@@ -163,7 +163,7 @@ instance : ToJson ProofStepResponse where
 
 /-- Json wrapper for an error. -/
 structure Error where
-  message : String
+  error : String
 deriving ToJson, FromJson
 
 structure PickleEnvironment where

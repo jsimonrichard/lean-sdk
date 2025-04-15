@@ -1,9 +1,12 @@
 import asyncio
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 import jsonrpcclient
 from pathlib import Path
 import logging
+from copy import deepcopy
+
+from .schema import CommandResponse, LeanError, MessageSeverity, Sorry, TacticResponse
 
 
 logger = logging.getLogger(__name__)
@@ -128,9 +131,11 @@ class LeanSessionAsync:
         self,
         client: LeanRpcClientAsync,
         env: Optional[int] = None,
+        tactic_sessions: Optional[List["LeanTacticSessionAsync"]] = None,
     ):
         self.client = client
         self.env = env
+        self.tactic_sessions = tactic_sessions or []
 
     @classmethod
     async def create(
@@ -147,11 +152,13 @@ class LeanSessionAsync:
             )
 
         if imports:
-            msgs = await session.run_command(
+            res = await session.run_command(
                 "\n".join([f"import {import_}" for import_ in imports])
             )
-            if msgs:
-                errors = [msg for msg in msgs if msg["severity"] == "error"]
+            if res.messages:
+                errors = [
+                    msg for msg in res.messages if msg.severity == MessageSeverity.error
+                ]
                 if errors:
                     raise RuntimeError(
                         f"Errors in imports: {errors}. Please check your imports and try again."
@@ -159,15 +166,60 @@ class LeanSessionAsync:
 
         return session
 
-    async def run_command(self, command: str):
+    async def run_command(self, command: str) -> Union[CommandResponse, LeanError]:
         res = await self.client._send_request(
             "runCommand", params={"cmd": command, "env": self.env}
         )
-        if "env" not in res:
-            raise RuntimeError(f"LeanRPC error: env missing from response: {res}")
-        self.env = res["env"]
+        if "error" in res:
+            return LeanError(error=res["error"])
 
-        return res["messages"] if "messages" in res else None
+        res = CommandResponse(**res)
+        self.env = res.env
 
-    def fork(self):
-        return LeanSessionAsync(self.client, self.env)
+        if res.sorries:
+            self.tactic_sessions = [
+                LeanTacticSessionAsync(self.client, sorry) for sorry in res.sorries
+            ]
+
+        return res
+
+    def fork(self) -> "LeanSessionAsync":
+        return LeanSessionAsync(self.client, self.env, deepcopy(self.tactic_sessions))
+
+
+class LeanTacticSessionAsync:
+    def __init__(
+        self,
+        client: LeanRpcClientAsync,
+        sorry: Sorry,
+        tactic_sessions: Optional[List["LeanTacticSessionAsync"]] = None,
+    ):
+        self.client = client
+        self.sorry = sorry
+        self.proof_state = self.sorry.proofState
+        self.goals = [self.sorry.goal]
+        self.tactic_sessions = tactic_sessions or []
+
+    async def apply_tactic(self, tactic: str) -> Union[TacticResponse, LeanError]:
+        res = await self.client._send_request(
+            "runProofStep", params={"tactic": tactic, "proofState": self.proof_state}
+        )
+
+        if "error" in res:
+            return LeanError(error=res["error"])
+
+        res = TacticResponse(**res)
+        self.proof_state = res.proofState
+        self.goals = res.goals
+
+        if res.sorries:
+            self.tactic_sessions = [
+                LeanTacticSessionAsync(self.client, sorry) for sorry in res.sorries
+            ]
+
+        return res
+
+    def fork(self) -> "LeanTacticSessionAsync":
+        return LeanTacticSessionAsync(
+            self.client, self.sorry, deepcopy(self.tactic_sessions)
+        )
