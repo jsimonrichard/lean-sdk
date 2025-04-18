@@ -18,6 +18,7 @@ class LeanRpcClientAsync:
     ):
         self.lean_project_path = Path(lean_project_path)
         self.process = process
+        self.proc_lock = asyncio.Lock()
 
     @classmethod
     async def create(cls, lean_project_path: Path | str):
@@ -101,9 +102,11 @@ class LeanRpcClientAsync:
             The response from the server
         """
         logger.debug(f"Sending message: {method}: {json.dumps(params, indent=4)}")
-        await self._write_message(method, params)
 
-        response = await self._read_response()
+        async with self.proc_lock:
+            await self._write_message(method, params)
+            response = await self._read_response()
+
         if isinstance(response, jsonrpcclient.Ok):
             logger.debug(f"Received response: {json.dumps(response.result, indent=4)}")
             return response.result

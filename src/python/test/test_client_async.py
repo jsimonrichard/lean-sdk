@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 import pytest_asyncio
 from lean_sdk import LeanRpcClientAsync, LeanSessionAsync
@@ -136,3 +137,14 @@ async def test_tactic(session):
             )
         ],
     )
+
+
+@pytest.mark.asyncio
+async def test_simultaneous_requests(session):
+    session_b = session.fork()
+
+    res1, res2 = await asyncio.gather(
+        session.run_command("#check id"),
+        session_b.run_command("#check id"),
+    )
+    assert res1 == res2
