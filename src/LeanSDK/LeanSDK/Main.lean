@@ -368,7 +368,16 @@ def serverLoop (stdin : IO.FS.Stream) (stdout : IO.FS.Stream) : IO Unit :=
           stdout.writeJsonRpcMessage (Message.responseError .null .parseError e.toString .none)
 
 /-- Main executable function, run as `lake exe LeanSDK`. -/
-def main (_ : List String) : IO Unit := do
+def main (args : List String) : IO Unit := do
+  if args.any (· == "--help") || args.any (· == "-h") then
+    IO.println "Usage: lake exe LeanSDK [--help | -h]
+
+A Lean SDK that communicates via JSON-RPC on stdin and stdout.
+
+Options:
+  --help, -h    Display this help message and exit"
+    return
+
   let stdin ← IO.getStdin
   let stdout ← IO.getStdout
 
